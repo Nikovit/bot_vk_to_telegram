@@ -15,5 +15,5 @@
 >
 > bot_token - токен бота полученный выше
 > channel - название канала в телеграмме для публикации ботом, важно помнить что для публикации сообщений в канале ботом, его нужно добавить администратором канала
->
-> Полное описание работы бота по [ссылке](http://nikovit.ru/blog/pishem-bota-peresylki-soobshcheniy-iz-vk-v-telegram-na-python/)
+
+Полное описание работы бота по [ссылке](http://nikovit.ru/blog/pishem-bota-peresylki-soobshcheniy-iz-vk-v-telegram-na-python/)
