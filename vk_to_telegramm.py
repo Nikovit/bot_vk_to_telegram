@@ -16,6 +16,9 @@ COUNT = config.get('VK', 'COUNT')
 BOT_TOKEN = config.get('Telegram', 'BOT_TOKEN')
 CHANNEL = config.get('Telegram', 'CHANNEL')
 
+# Символы, на которых можно разбить сообщение
+message_breakers = [":", " ", "\n"]
+
 # Инициализируем телеграмм бота
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -105,16 +108,19 @@ def send_posts_text(text):
         print('no text')
     else:
         # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
-        if len(text) >= 4091:
-            text4091 = text[:4091]
-            bot.send_message(CHANNEL, text4091)
-            if len(text) >= 8182:
-                text8182 = text[4091:8182]
-                bot.send_message(CHANNEL, text8182)
-                text12773 = text[8182:12773]
-                bot.send_message(CHANNEL, text12773)
-        else:
-            bot.send_message(CHANNEL, text)
+        for msg in split(text):
+            bot.send_message(CHANNEL, msg)
+
+
+def split(text):
+    if len(text) >= 4096:
+        last_index = max(
+            map(lambda separator: text.rfind(" ", 0, 4096), message_breakers))
+        good_part = text[:last_index]
+        bad_part = text[last_index + 1:]
+        return [good_part] + split(bad_part)
+    else:
+        return [text]
 
 
 # Изображения
