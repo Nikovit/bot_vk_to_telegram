@@ -8,8 +8,9 @@ import configparser
 import logging
 
 # Считываем настройки
+config_path = os.path.join(sys.path[0], 'settings.ini')
 config = configparser.ConfigParser()
-config.read(os.path.join(sys.path[0], 'settings.ini'))
+config.read(config_path)
 LOGIN = config.get('VK', 'LOGIN')
 PASSWORD = config.get('VK', 'PASSWORD')
 DOMAIN = config.get('VK', 'DOMAIN')
@@ -96,7 +97,7 @@ def check_posts_vk():
 
         # Записываем id в файл
         config.set('Settings', 'LAST_ID', str(post['id']))
-        with open('settings.ini', "w") as config_file:
+        with open(config_path, "w") as config_file:
             config.write(config_file)
 
 
