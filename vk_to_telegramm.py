@@ -25,7 +25,8 @@ def get_data(domain_vk, count_vk):
     vk_session = vk_api.VkApi(LOGIN, PASSWORD)
     vk_session.auth()
     vk = vk_session.get_api()
-    response = vk.wall.get(domain=domain_vk, count=count_vk)  # Используем метод wall.get из документации по API vk.com
+    # Используем метод wall.get из документации по API vk.com
+    response = vk.wall.get(domain=domain_vk, count=count_vk)
     return response
 
 
@@ -47,7 +48,6 @@ def check_posts_vk():
         config.set('Settings', 'LAST_ID', str(post['id']))
         with open('settings.ini', "w") as config_file:
             config.write(config_file)
-
 
         print('------------------------------------------------------------------------------------------------')
         print(post)
@@ -120,25 +120,8 @@ def send_posts_text(text):
 # Изображения
 def send_posts_img(img):
     # Находим картинку с максимальным качеством
-    if 'photo_2560' in img:
-        print(img['photo_2560'])
-        bot.send_photo(CHANNEL, img['photo_2560'])
-        logging.info('Image: ' + img['photo_2560'])
-    else:
-        if 'photo_1280' in img:
-            print(img['photo_1280'])
-            bot.send_photo(CHANNEL, img['photo_1280'])
-            logging.info('Image: ' + img['photo_1280'])
-        else:
-            if 'photo_807' in img:
-                print(img['photo_807'])
-                bot.send_photo(CHANNEL, img['photo_807'])
-                logging.info('Image: ' + img['photo_807'])
-            else:
-                if 'photo_604' in img:
-                    print(img['photo_604'])
-                    bot.send_photo(CHANNEL, img['photo_604'])
-                    logging.info('Image: ' + img['photo_604'])
+    url = max(img["sizes"], key=lambda size: size["type"])["url"]
+    bot.send_photo(CHANNEL, url)
 
 
 if __name__ == '__main__':
