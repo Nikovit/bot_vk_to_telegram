@@ -48,11 +48,6 @@ def check_posts_vk():
         if int(post['id']) <= int(id):
             continue
 
-        # Записываем id в файл
-        config.set('Settings', 'LAST_ID', str(post['id']))
-        with open('settings.ini', "w") as config_file:
-            config.write(config_file)
-
         print('------------------------------------------------------------------------------------------------')
         print(post)
 
@@ -98,6 +93,11 @@ def check_posts_vk():
                     for img in attach:
                         image = img['photo']
                         send_posts_img(image)
+
+        # Записываем id в файл
+        config.set('Settings', 'LAST_ID', str(post['id']))
+        with open('settings.ini', "w") as config_file:
+            config.write(config_file)
 
 
 # Отправляем посты в телеграмм
