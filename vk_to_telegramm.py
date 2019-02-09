@@ -6,6 +6,7 @@ import vk_api
 import telebot
 import configparser
 import logging
+from telebot.types import InputMediaPhoto
 
 # Считываем настройки
 config_path = os.path.join(sys.path[0], 'settings.ini')
@@ -17,9 +18,11 @@ DOMAIN = config.get('VK', 'DOMAIN')
 COUNT = config.get('VK', 'COUNT')
 BOT_TOKEN = config.get('Telegram', 'BOT_TOKEN')
 CHANNEL = config.get('Telegram', 'CHANNEL')
+INCLUDE_LINK = config.getboolean('Settings', 'INCLUDE_LINK')
+PREVIEW_LINK = config.getboolean('Settings', 'PREVIEW_LINK')
 
 # Символы, на которых можно разбить сообщение
-message_breakers = [":", " ", "\n"]
+message_breakers = [':', ' ', '\n']
 max_message_length = 4091
 
 # Инициализируем телеграмм бота
@@ -55,15 +58,42 @@ def check_posts_vk():
 
         # Текст
         text = post['text']
-        send_posts_text(text)
 
         # Проверяем есть ли что то прикрепленное к посту
+        images = []
+        links = []
+        attachments = []
         if 'attachments' in post:
             attach = post['attachments']
             for add in attach:
                 if add['type'] == 'photo':
-                    add = add['photo']
-                    send_posts_img(add)
+                    img = add['photo']
+                    images.append(img)
+                elif add['type'] == 'audio':
+                    # Все аудиозаписи заблокированы везде, кроме оффицальных приложений
+                    continue
+                elif add['type'] == 'video':
+                    video = add['video']
+                    if 'player' in video:
+                        links.append(video['player'])
+                else:
+                    for (key, value) in add.items():
+                        if key != 'type' and 'url' in value:
+                            attachments.append(value['url'])
+
+        if INCLUDE_LINK:
+            post_url = "https://vk.com/" + DOMAIN + "?w=wall" + \
+                str(post['owner_id']) + '_' + str(post['id'])
+            links.insert(0, post_url)
+        text = '\n'.join([text] + links)
+        send_posts_text(text)
+
+        if len(images) > 0:
+            image_urls = list(map(lambda img: max(
+                img["sizes"], key=lambda size: size["type"])["url"], images))
+            print(image_urls)
+            bot.send_media_group(CHANNEL, map(
+                lambda url: InputMediaPhoto(url), image_urls))
 
         # Проверяем есть ли репост другой записи
         if 'copy_history' in post:
@@ -112,7 +142,7 @@ def send_posts_text(text):
     else:
         # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
         for msg in split(text):
-            bot.send_message(CHANNEL, msg)
+            bot.send_message(CHANNEL, msg, disable_web_page_preview=not PREVIEW_LINK)
 
 
 def split(text):
