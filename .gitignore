@@ -1,0 +1,3 @@
+virtualenv/
+vk_config*.json
+.vscode
