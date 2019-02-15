@@ -172,8 +172,7 @@ def send_posts_text(text):
     else:
         # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
         for msg in split(text):
-            bot.send_message(
-                CHANNEL, msg, disable_web_page_preview=not PREVIEW_LINK)
+            bot.send_message(CHANNEL, msg, disable_web_page_preview=not PREVIEW_LINK)
 
 
 def split(text):
