@@ -16,6 +16,7 @@ LOGIN = config.get('VK', 'LOGIN')
 PASSWORD = config.get('VK', 'PASSWORD')
 DOMAIN = config.get('VK', 'DOMAIN')
 COUNT = config.get('VK', 'COUNT')
+VK_TOKEN = config.get('VK', 'TOKEN', fallback=None)
 BOT_TOKEN = config.get('Telegram', 'BOT_TOKEN')
 CHANNEL = config.get('Telegram', 'CHANNEL')
 INCLUDE_LINK = config.getboolean('Settings', 'INCLUDE_LINK')
@@ -31,8 +32,26 @@ bot = telebot.TeleBot(BOT_TOKEN)
 
 # Получаем данные из vk.com
 def get_data(domain_vk, count_vk):
-    vk_session = vk_api.VkApi(LOGIN, PASSWORD)
-    vk_session.auth()
+    global LOGIN
+    global PASSWORD
+    global VK_TOKEN
+    global config
+    global config_path
+
+    if VK_TOKEN is not None:
+        vk_session = vk_api.VkApi(LOGIN, PASSWORD, VK_TOKEN)
+        vk_session.auth(token_only=True)
+    else:
+        vk_session = vk_api.VkApi(LOGIN, PASSWORD)
+        vk_session.auth()
+
+    new_token = vk_session.token['access_token']
+    if VK_TOKEN != new_token:
+        VK_TOKEN = new_token
+        config.set('VK', 'TOKEN', new_token)
+        with open(config_path, "w") as config_file:
+            config.write(config_file)
+
     vk = vk_session.get_api()
     # Используем метод wall.get из документации по API vk.com
     response = vk.wall.get(domain=domain_vk, count=count_vk)
@@ -41,6 +60,13 @@ def get_data(domain_vk, count_vk):
 
 # Проверяем данные по условиям перед отправкой
 def check_posts_vk():
+    global DOMAIN
+    global COUNT
+    global INCLUDE_LINK
+    global bot
+    global config
+    global config_path
+
     response = get_data(DOMAIN, COUNT)
     response = reversed(response['items'])
 
@@ -137,15 +163,23 @@ def check_posts_vk():
 
 # Текст
 def send_posts_text(text):
+    global CHANNEL
+    global PREVIEW_LINK
+    global bot
+
     if text == '':
         print('no text')
     else:
         # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
         for msg in split(text):
-            bot.send_message(CHANNEL, msg, disable_web_page_preview=not PREVIEW_LINK)
+            bot.send_message(
+                CHANNEL, msg, disable_web_page_preview=not PREVIEW_LINK)
 
 
 def split(text):
+    global message_breakers
+    global max_message_length
+
     if len(text) >= max_message_length:
         last_index = max(
             map(lambda separator: text.rfind(separator, 0, max_message_length), message_breakers))
@@ -158,6 +192,8 @@ def split(text):
 
 # Изображения
 def send_posts_img(img):
+    global bot
+    
     # Находим картинку с максимальным качеством
     url = max(img["sizes"], key=lambda size: size["type"])["url"]
     bot.send_photo(CHANNEL, url)
