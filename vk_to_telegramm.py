@@ -7,6 +7,7 @@ import telebot
 import configparser
 import logging
 from telebot.types import InputMediaPhoto
+import time
 
 # Считываем настройки
 config_path = os.path.join(sys.path[0], 'settings.ini')
@@ -156,6 +157,10 @@ def check_posts_vk():
         config.set('Settings', 'LAST_ID', str(post['id']))
         with open(config_path, "w") as config_file:
             config.write(config_file)
+
+        # пауза перед отправкой следующего поста
+        time.sleep(30)
+
 
 
 # Отправляем посты в телеграмм
