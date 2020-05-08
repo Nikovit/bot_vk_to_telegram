@@ -25,7 +25,9 @@ PREVIEW_LINK = config.getboolean('Settings', 'PREVIEW_LINK')
 # Символы, на которых можно разбить сообщение
 message_breakers = [':', ' ', '\n']
 max_message_length = 4091
+max_capt_length = 1024
 
+delim = '\n-----------------------------------'
 # Инициализируем телеграмм бота
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -112,14 +114,19 @@ def check_posts_vk():
                 str(post['owner_id']) + '_' + str(post['id'])
             links.insert(0, post_url)
         text = '\n'.join([text] + links)
-        send_posts_text(text)
 
-        if len(images) > 0:
+        if len(images) > 1:
             image_urls = list(map(lambda img: max(
                 img["sizes"], key=lambda size: size["type"])["url"], images))
             print(image_urls)
             bot.send_media_group(CHANNEL, map(
                 lambda url: InputMediaPhoto(url), image_urls))
+            send_posts_text(text)
+        elif len(images) == 1:
+            send_posts_img(images[0], text)
+        else:
+            send_posts_text(text)
+
 
         # Проверяем есть ли репост другой записи
         if 'copy_history' in post:
@@ -175,11 +182,22 @@ def send_posts_text(text):
             bot.send_message(CHANNEL, msg, disable_web_page_preview=not PREVIEW_LINK)
 
 
-def split(text):
+def split(text, type=None):
     global message_breakers
     global max_message_length
+    global max_capt_length
+    global delim
 
-    if len(text) >= max_message_length:
+    if type == "str":
+        max_length = max_message_length
+    elif type == "pic":
+        max_length = max_capt_length
+    else
+        # Keep default msg size for now
+        max_length = max_message_length
+
+    text = text + delim
+    if len(text) >= max_length:
         last_index = max(
             map(lambda separator: text.rfind(separator, 0, max_message_length), message_breakers))
         good_part = text[:last_index]
@@ -190,12 +208,17 @@ def split(text):
 
 
 # Изображения
-def send_posts_img(img):
+def send_posts_img(img, txt=None):
     global bot
-    
     # Находим картинку с максимальным качеством
     url = max(img["sizes"], key=lambda size: size["type"])["url"]
-    bot.send_photo(CHANNEL, url)
+
+    if txt:
+        #Workaround: Post first part of text
+        caption = split(txt, "pic")[0]
+    else
+        caption = None
+    bot.send_photo(CHANNEL, url, caption)
 
 
 if __name__ == '__main__':
