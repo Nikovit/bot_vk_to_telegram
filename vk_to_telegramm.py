@@ -8,9 +8,26 @@ import configparser
 import logging
 from telebot.types import InputMediaPhoto
 import time
+import getopt,sys
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "hc:", ["help", "config="])
+except getopt.GetoptError as err:
+    # print help information and exit:
+    print(str(err))  # will print something like "option -a not recognized"
+    #usage()
+    sys.exit(2)
+
+CONFIG_FILE="settings.ini"
+
+for o, a in opts:
+    if o in ("-c", "--config"):
+        CONFIG_FILE = a
+    else:
+        assert False, "unhandled option"
 
 # Считываем настройки
-config_path = os.path.join(sys.path[0], 'settings.ini')
+config_path = os.path.join(sys.path[0], CONFIG_FILE)
 config = configparser.ConfigParser()
 config.read(config_path)
 LOGIN = config.get('VK', 'LOGIN')
@@ -157,10 +174,6 @@ def check_posts_vk():
         config.set('Settings', 'LAST_ID', str(post['id']))
         with open(config_path, "w") as config_file:
             config.write(config_file)
-
-        # пауза перед отправкой следующего поста
-        time.sleep(30)
-
 
 
 # Отправляем посты в телеграмм
