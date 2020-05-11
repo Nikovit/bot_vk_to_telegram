@@ -40,6 +40,10 @@ CHANNEL = config.get('Telegram', 'CHANNEL')
 INCLUDE_LINK = config.getboolean('Settings', 'INCLUDE_LINK')
 PREVIEW_LINK = config.getboolean('Settings', 'PREVIEW_LINK')
 
+DELIMETER = None
+if 'DELIMETER' in config['Telegram']:
+    DELIMETER = config.get('Telegram', 'DELIMETER')
+
 # Символы, на которых можно разбить сообщение
 message_breakers = [':', ' ', '\n']
 max_message_length = 4091
@@ -175,6 +179,10 @@ def check_posts_vk():
         config.set('Settings', 'LAST_ID', str(post['id']))
         with open(config_path, "w") as config_file:
             config.write(config_file)
+
+        if DELIMETER is not None:
+            send_posts_text(DELIMETER)
+        time.sleep(15)
 
 
 # Отправляем посты в телеграмм
