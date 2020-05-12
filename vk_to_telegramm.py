@@ -49,7 +49,8 @@ message_breakers = [':', ' ', '\n']
 max_message_length = 4091
 max_capt_length = 1024
 
-delim = '\n-----------------------------------'
+delim = '\n***********************************'
+rep_delim = '\n------конец репоста-----------------'
 # Инициализируем телеграмм бота
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -140,43 +141,23 @@ def check_posts_vk():
                 str(post['owner_id']) + '_' + str(post['id'])
             links.insert(0, post_url)
         text = '\n'.join([text] + links)
-
-        if len(images) > 1:
-            image_urls = list(map(lambda img: max(
-                img["sizes"], key=lambda size: size["type"])["url"], images))
-            print(image_urls)
-            bot.send_media_group(CHANNEL, map(
-                lambda url: InputMediaPhoto(url), image_urls))
-            send_posts_text(text)
-        elif len(images) == 1:
-            send_posts_img(images[0], text)
-        else:
-            send_posts_text(text)
+        data = {'type':'main', 'images': images, 'text': text}
+        post_data(**data)
 
 
         # Проверяем есть ли репост другой записи
+        att_imgs = []
+        lnk_text = []
         if 'copy_history' in post:
             copy_history = post['copy_history']
             copy_history = copy_history[0]
             print('--copy_history--')
             print(copy_history)
-            text = copy_history['text']
-            send_posts_text(text)
 
             # Проверяем есть ли у репоста прикрепленное сообщение
             if 'attachments' in copy_history:
                 copy_add = copy_history['attachments']
                 copy_add = copy_add[0]
-
-                # Если это ссылка
-                if copy_add['type'] == 'link':
-                    link = copy_add['link']
-                    text = link['title']
-                    send_posts_text(text)
-                    img = link['photo']
-                    send_posts_img(img)
-                    url = link['url']
-                    send_posts_text(url)
 
                 # Если это картинки
                 if copy_add['type'] == 'photo':
@@ -184,7 +165,22 @@ def check_posts_vk():
                     for img in attach:
                         if 'photo' in img:
                             image = img['photo']
-                            send_posts_img(image)
+                            att_imgs.append(image)
+
+                # Если это ссылка
+                if copy_add['type'] == 'link':
+                    link = copy_add['link']
+                    lnk_text.append(link['title'])
+                    lnk_text.append(link['url'])
+                    #TODO: need refactor this -when we have multiple images and this in same time
+                    img = link['photo']
+                    #TBD: need to figure out this
+                    #send_posts_img(img)
+                    att_imgs.append(img)
+
+            text = '\n'.join([copy_history['text']] + lnk_text)
+            data = {'type':'repost', 'images': att_imgs, 'text': text}
+            post_data(**data)
 
         # Записываем id в файл
         config.set('Settings', 'LAST_ID', str(post['id']))
@@ -199,56 +195,89 @@ def check_posts_vk():
 # Отправляем посты в телеграмм
 
 
+def post_data(**data):
+    # data - {'type':type,'images':images, 'text':text}
+    type = data.get('type', 'main')
+    images = data.get('images',[])
+    text = data.get('text','')
+    body = {'type': type, 'pic': False, 'body': text }
+        if len(images) > 1:
+            image_urls = list(map(lambda img: max(
+                img["sizes"], key=lambda size: size["type"])["url"], images))
+            print(image_urls)
+            bot.send_media_group(CHANNEL, map(
+                lambda url: InputMediaPhoto(url), image_urls))
+            send_posts_text(**body)
+        elif len(images) == 1:
+            body['pic'] = True
+            send_posts_img(**body)
+        else:
+            send_posts_text(**body)
+
 # Текст
-def send_posts_text(text):
+def send_posts_text( **data):
     global CHANNEL
     global PREVIEW_LINK
     global bot
 
-    if text == '':
-        print('no text')
+    type = data.get('type', 'main')
+    text = data.get('text')
+
+    # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
+    for msg in split(**data):
+        bot.send_message(CHANNEL, msg, disable_web_page_preview=not PREVIEW_LINK)
+
+def set_delim(type):
+    global delim
+    global rep_delim
+
+    if type == 'main':
+        return delim
+    elif type == 'repost':
+        return rep_delim
     else:
-        # В телеграмме есть ограничения на длину одного сообщения в 4091 символ, разбиваем длинные сообщения на части
-        for msg in split(text):
-            bot.send_message(CHANNEL, msg, disable_web_page_preview=not PREVIEW_LINK)
+        return None
 
 
-def split(text, type=None):
+def split(**message):
+    # message format: {'type': 'main', 'pic':True, 'body': 'текст сообщения'}
+    # message types: main - 'common text for messages and caption', repost - 'text or caption for repost'
+    # message def: 'pic' True or False, if image exists
+
     global message_breakers
     global max_message_length
     global max_capt_length
-    global delim
 
-    if type == "str":
-        max_length = max_message_length
-    elif type == "pic":
+    type = message.get('type', 'main')
+    text = message.get('body')
+
+    if message.get('pic', False):
         max_length = max_capt_length
-    else
-        # Keep default msg size for now
+    else:
         max_length = max_message_length
 
+    delim = set_delim(type)
     text = text + delim
+
     if len(text) >= max_length:
         last_index = max(
             map(lambda separator: text.rfind(separator, 0, max_message_length), message_breakers))
         good_part = text[:last_index]
-        bad_part = text[last_index + 1:]
-        return [good_part] + split(bad_part)
+        message['body'] = text[last_index + 1:]
+        return [good_part] + split(**message)
     else:
         return [text]
 
 
 # Изображения
-def send_posts_img(img, txt=None):
+def send_posts_img(**object):
     global bot
+
+    img = object.get('images', [])[0]
     # Находим картинку с максимальным качеством
     url = max(img["sizes"], key=lambda size: size["type"])["url"]
 
-    if txt:
-        #Workaround: Post first part of text
-        caption = split(txt, "pic")[0]
-    else
-        caption = None
+    caption = split(**object)[0]
     bot.send_photo(CHANNEL, url, caption)
 
 
