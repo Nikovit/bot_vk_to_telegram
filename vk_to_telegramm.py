@@ -223,7 +223,7 @@ def split(text, type=None):
         max_length = max_message_length
     elif type == "pic":
         max_length = max_capt_length
-    else
+    else:
         # Keep default msg size for now
         max_length = max_message_length
 
@@ -247,7 +247,7 @@ def send_posts_img(img, txt=None):
     if txt:
         #Workaround: Post first part of text
         caption = split(txt, "pic")[0]
-    else
+    else:
         caption = None
     bot.send_photo(CHANNEL, url, caption)
 
