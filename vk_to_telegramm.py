@@ -76,7 +76,11 @@ def get_data(domain_vk, count_vk):
 
     vk = vk_session.get_api()
     # Используем метод wall.get из документации по API vk.com
-    response = vk.wall.get(domain=domain_vk, count=count_vk)
+    if domain_vk.find('public') == 0:
+        # public id
+        response = vk.wall.get(owner_id=-1*int(domain_vk.replace('public','')), count=count_vk)
+    else:
+        response = vk.wall.get(domain=domain_vk, count=count_vk)
     return response
 
 
