@@ -7,9 +7,37 @@ import telebot
 import configparser
 import logging
 from telebot.types import InputMediaPhoto
+import time
+import getopt
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:], "hc:t:d", ["help", "config=", "target=", "debug"])
+except getopt.GetoptError as err:
+    # print help information and exit:
+    print(str(err))  # will print something like "option -a not recognized"
+    #usage()
+    sys.exit(2)
+
+CONFIG_FILE="settings.ini"
+CHANNEL=""
+DEBUG_MODE=False
+
+for o, a in opts:
+    if o in ("-c", "--config"):
+        CONFIG_FILE = a
+    elif o in ("-t", "--target"):
+        CHANNEL = a
+    elif o in ("-h", "--help"):
+        print(os.path.basename(__file__), "-h [ -t @targetchanel ][ -c <configfile>]")
+        sys.exit()
+    elif o in ("-d", "--debug"):
+        print("Debug mode is enabled. Ini files are not updated!")
+        DEBUG_MODE=True
+    else:
+        assert False, "unhandled option"
 
 # Считываем настройки
-config_path = os.path.join(sys.path[0], 'settings.ini')
+config_path = os.path.join(sys.path[0], CONFIG_FILE)
 config = configparser.ConfigParser()
 config.read(config_path)
 LOGIN = config.get('VK', 'LOGIN')
@@ -18,9 +46,15 @@ DOMAIN = config.get('VK', 'DOMAIN')
 COUNT = config.get('VK', 'COUNT')
 VK_TOKEN = config.get('VK', 'TOKEN', fallback=None)
 BOT_TOKEN = config.get('Telegram', 'BOT_TOKEN')
-CHANNEL = config.get('Telegram', 'CHANNEL')
+if CHANNEL == "":
+    CHANNEL = config.get('Telegram', 'CHANNEL')
 INCLUDE_LINK = config.getboolean('Settings', 'INCLUDE_LINK')
 PREVIEW_LINK = config.getboolean('Settings', 'PREVIEW_LINK')
+
+
+DELIMETER = None
+if 'DELIMETER' in config['Telegram']:
+    DELIMETER = config.get('Telegram', 'DELIMETER')
 
 # Символы, на которых можно разбить сообщение
 message_breakers = [':', ' ', '\n']
@@ -49,12 +83,17 @@ def get_data(domain_vk, count_vk):
     if VK_TOKEN != new_token:
         VK_TOKEN = new_token
         config.set('VK', 'TOKEN', new_token)
-        with open(config_path, "w") as config_file:
-            config.write(config_file)
+        if not DEBUG_MODE:
+            with open(config_path, "w") as config_file:
+                config.write(config_file)
 
     vk = vk_session.get_api()
     # Используем метод wall.get из документации по API vk.com
-    response = vk.wall.get(domain=domain_vk, count=count_vk)
+    if domain_vk.find('public') == 0:
+        # public id
+        response = vk.wall.get(owner_id=-1*int(domain_vk.replace('public','')), count=count_vk)
+    else:
+        response = vk.wall.get(domain=domain_vk, count=count_vk)
     return response
 
 
@@ -116,7 +155,7 @@ def check_posts_vk():
 
         if len(images) > 0:
             image_urls = list(map(lambda img: max(
-                img["sizes"], key=lambda size: size["type"])["url"], images))
+                img["sizes"], key=lambda size: size["type"])["url"].replace("&type=album",""), images))
             print(image_urls)
             bot.send_media_group(CHANNEL, map(
                 lambda url: InputMediaPhoto(url), image_urls))
@@ -149,13 +188,19 @@ def check_posts_vk():
                 if copy_add['type'] == 'photo':
                     attach = copy_history['attachments']
                     for img in attach:
-                        image = img['photo']
-                        send_posts_img(image)
+                        if 'photo' in img:
+                            image = img['photo']
+                            send_posts_img(image)
 
         # Записываем id в файл
         config.set('Settings', 'LAST_ID', str(post['id']))
-        with open(config_path, "w") as config_file:
-            config.write(config_file)
+        if not DEBUG_MODE:
+            with open(config_path, "w") as config_file:
+                config.write(config_file)
+
+        if DELIMETER is not None:
+            send_posts_text(DELIMETER)
+        time.sleep(15)
 
 
 # Отправляем посты в телеграмм
